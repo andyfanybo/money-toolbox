@@ -1,0 +1,79 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build APKs (armv7 / armv8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > keystore/moneybox.keystore
+            echo "使用 GitHub Secrets 提供的签名密钥"
+          else
+            echo "未配置 Secrets,使用仓库内置的便捷签名密钥"
+          fi
+
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+      - name: Build release APKs
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            ./gradlew :app:assembleRelease -PappVersionName="${GITHUB_REF_NAME#v}" --stacktrace
+          else
+            ./gradlew :app:assembleRelease --stacktrace
+          fi
+
+      - name: Collect APKs
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then VER="${GITHUB_REF_NAME#v}"; else VER="${GITHUB_REF_NAME}-$(echo $GITHUB_SHA | cut -c1-7)"; fi
+          cp app/build/outputs/apk/release/app-arm64-v8a-release.apk   "dist/MoneyToolbox-${VER}-arm64-v8a.apk"
+          cp app/build/outputs/apk/release/app-armeabi-v7a-release.apk "dist/MoneyToolbox-${VER}-armeabi-v7a.apk"
+          ls -la dist/
+
+      - name: Upload build artifacts (every branch build)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks-${{ github.run_id }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Publish to GitHub Releases (tag push only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.apk
+          generate_release_notes: true
+          body: |
+            ## 📲 安装说明
+            - **arm64-v8a**(推荐): 2016 年之后的大部分手机
+            - **armeabi-v7a**: 更早期的 32 位设备
+
+            下载对应 APK 直接安装即可。覆盖安装旧版本无需卸载(签名一致)。

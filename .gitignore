@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+app/build/
+
+# IDE
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local config (contains your machine's SDK path)
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 注意: keystore/moneybox.keystore 是刻意提交的便捷签名文件,
+# 便于 GitHub Actions 开箱即用地产出固定签名的 APK。
+# 如需更安全的方案,请参考 README「签名配置」改用 GitHub Secrets。
+
+# 本地构建产物副本
+dist/
