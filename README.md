@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/YOUR_USERNAME/money-toolbox/releases/latest"><img src="https://img.shields.io/github/v/release/YOUR_USERNAME/money-toolbox?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=10B981" alt="Release" /></a>
-  <a href="https://github.com/YOUR_USERNAME/money-toolbox/actions/workflows/release.yml"><img src="https://github.com/YOUR_USERNAME/money-toolbox/actions/workflows/release.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/andyfanybo/money-toolbox/releases/latest"><img src="https://img.shields.io/github/v/release/andyfanybo/money-toolbox?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=10B981" alt="Release" /></a>
+  <a href="https://github.com/andyfanybo/money-toolbox/actions/workflows/release.yml"><img src="https://github.com/andyfanybo/money-toolbox/actions/workflows/release.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/%E6%9D%83%E9%99%90-%E4%B8%8D%E8%81%94%E7%BD%91-10B981" alt="无网络权限" />
   <img src="https://img.shields.io/badge/UI-Material%203-10B981" alt="Material 3" />
 </p>
@@ -54,7 +54,7 @@
 
 ## 📲 下载安装
 
-前往 [**GitHub Releases**](https://github.com/YOUR_USERNAME/money-toolbox/releases/latest) 下载对应版本:
+前往 [**GitHub Releases**](https://github.com/andyfanybo/money-toolbox/releases/latest) 下载对应版本:
 
 | 文件 | 适用设备 |
 |---|---|
