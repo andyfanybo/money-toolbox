@@ -50,4 +50,14 @@ class ParkingViewModel(app: Application) : AndroidViewModel(app) {
             NotificationManagerCompat.from(getApplication()).cancel(Notifier.REMIND_NOTIF_ID)
         }
     }
+
+    /** 标记已缴费: 出场宽限结束时刻成为下一个计费周期锚点 */
+    fun markPaid() {
+        val current = session.value ?: return
+        viewModelScope.launch {
+            repo.saveSession(current.copy(paidAtMs = System.currentTimeMillis()))
+            ReminderScheduler.scheduleNext(getApplication())
+            NotificationManagerCompat.from(getApplication()).cancel(Notifier.REMIND_NOTIF_ID)
+        }
+    }
 }

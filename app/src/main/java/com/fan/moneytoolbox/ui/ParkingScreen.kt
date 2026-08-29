@@ -85,6 +85,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
@@ -112,6 +113,7 @@ private val Gold = Color(0xFFFBBF24)
 private val FREE_PRESETS = listOf(5, 10, 15, 30)
 private val UNIT_PRESETS = listOf(15, 30, 60)
 private val GRACE_PRESETS = listOf(5, 10, 15, 30)
+private val BUFFER_PRESETS = listOf(1, 2, 3, 5)
 
 @Composable
 fun ParkingScreen(viewModel: ParkingViewModel, onBack: () -> Unit) {
@@ -222,7 +224,7 @@ private fun SectionHeader(title: String, subtitle: String) {
     }
 }
 
-/** 预设值 + 「自定义」的一排筛选块 */
+/** 预设值 + 「自定义」的一排筛选块(FlowRow 整块换行,文字永不截断换行) */
 @Composable
 private fun ValueChips(
     presets: List<Int>,
@@ -236,13 +238,13 @@ private fun ValueChips(
             FilterChip(
                 selected = value == p,
                 onClick = { onSelect(p) },
-                label = { Text(format(p)) },
+                label = { Text(format(p), maxLines = 1, softWrap = false) },
             )
         }
         FilterChip(
             selected = presets.none { it == value },
             onClick = onCustomClick,
-            label = { Text("自定义") },
+            label = { Text("自定义", maxLines = 1, softWrap = false) },
         )
     }
 }
@@ -369,11 +371,13 @@ private fun SetupSection(viewModel: ParkingViewModel) {
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("提前提醒", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(5, 10, 15).forEach { v ->
                     FilterChip(
                         selected = cfg.remindBeforeFreeMinutes == v,
                         onClick = { update { it.copy(remindBeforeFreeMinutes = v) } },
-                        label = { Text("${v} 分钟") },
+                        label = { Text("${v} 分钟", maxLines = 1, softWrap = false) },
                     )
                 }
             }
@@ -424,10 +428,10 @@ private fun SetupSection(viewModel: ParkingViewModel) {
         }
     }
 
-    // 出场宽限卡片
+    // 缴费与出场宽限卡片
     Card(shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionHeader("缴费后出场宽限", "一般 10~15 分钟,按停车场公示为准")
+            SectionHeader("缴费与出场宽限", "缴费后一般有 10~15 分钟出场时间")
             ValueChips(
                 presets = GRACE_PRESETS,
                 value = cfg.exitGraceMinutes,
@@ -448,8 +452,24 @@ private fun SetupSection(viewModel: ParkingViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                 ) { v -> update { it.copy(exitGraceMinutes = v) } }
             }
+            Row {
+                Text(
+                    "缴费缓冲",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BUFFER_PRESETS.forEach { v ->
+                    FilterChip(
+                        selected = cfg.payBufferMinutes == v,
+                        onClick = { update { it.copy(payBufferMinutes = v) } },
+                        label = { Text("${v} 分钟", maxLines = 1, softWrap = false) },
+                    )
+                }
+            }
             Text(
-                "系统会在每个计费周期截止前 ${cfg.exitGraceMinutes} 分钟提醒你缴费,拿到车驶出闸口正好不超时。",
+                "每个计费周期截止前 ${cfg.payBufferMinutes} 分钟提醒你缴费;缴费后 ${cfg.exitGraceMinutes} 分钟内驶出闸口即可,超时将从宽限结束重新计费。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -527,7 +547,7 @@ private fun EntryButton(label: String, modifier: Modifier = Modifier, onClick: (
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 4.dp),
     ) {
-        Text(label)
+        Text(label, maxLines = 1, softWrap = false)
     }
 }
 
@@ -668,6 +688,7 @@ private fun openAppDetails(context: Context) {
 @Composable
 private fun PreviewCard(entryMs: Long, cfg: ParkingConfig) {
     val preview = ParkingSession(entryMs, cfg)
+    val freeRemind = ParkingMath.freeRemindMs(preview)
     val freeEnd = ParkingMath.freeEndMs(preview)
     val firstSave = ParkingMath.kthSaveRemindMs(preview, 1)
     val secondSave = ParkingMath.kthSaveRemindMs(preview, 2)
@@ -678,12 +699,11 @@ private fun PreviewCard(entryMs: Long, cfg: ParkingConfig) {
 
     val rows = buildList {
         add("入场时间" to Format.dateTime(entryMs))
-        if (cfg.freeMinutes > 0) {
-            add("免费截止" to "${Format.clock(freeEnd)}(免费 ${cfg.freeMinutes} 分钟)")
+        if (freeRemind != null) {
+            add("首次提醒" to "${Format.clock(freeRemind)}(免费截止前 ${cfg.remindBeforeFreeMinutes} 分钟)")
         }
-        add("开始计费" to "${Format.clock(freeEnd)} 起 ¥${cfg.rateYuan}/${ParkingMath.unitText(cfg)}")
-        add("首次省钱提醒" to "${Format.clock(firstSave)} 缴费驶出省 ¥${cfg.rateYuan}")
-        add("下次省钱提醒" to Format.clock(secondSave))
+        add("首次收费提醒" to "${Format.clock(firstSave)}(周期截止前 ${cfg.payBufferMinutes} 分钟)")
+        add("下次收费提醒" to Format.clock(secondSave))
         add("若停满 2 小时" to "约付 ¥$twoHourCost")
     }
 
@@ -725,6 +745,16 @@ private fun PreviewCard(entryMs: Long, cfg: ParkingConfig) {
                     )
                 }
             }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                buildString {
+                    append("免费截止 ${Format.clock(freeEnd)}。")
+                    append("每周期截止前 ${cfg.payBufferMinutes} 分钟提醒一次;缴费后另有 ${cfg.exitGraceMinutes} 分钟出场时间,")
+                    append("宽限结束仍在场则从该时刻重新按周期计费并继续提醒。")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+            )
         }
     }
 }
@@ -749,10 +779,14 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
         heroTitle = "免费停车中"
         countdownMs = status.freeRemainMs
         countdownCaption = "${Format.clock(status.nextBoundaryMs)} 免费结束 · 之后 ¥${cfg.rateYuan}/${ParkingMath.unitText(cfg)}"
+    } else if (status.inPaidWindow) {
+        heroTitle = "已缴费 · 出场宽限中"
+        countdownMs = status.paidWindowRemainMs
+        countdownCaption = "请于 ${Format.clock(status.nextBoundaryMs)} 前驶出 · 超时将按 ¥${cfg.rateYuan}/${ParkingMath.unitText(cfg)} 继续计费"
     } else if (status.inSaveWindow) {
         heroTitle = "现在缴费,立省 ¥${cfg.rateYuan}"
         countdownMs = status.nextBoundaryMs - now
-        countdownCaption = "请在 ${Format.clock(status.nextBoundaryMs)} 前缴费并驶出,否则按 ¥${status.nextUnitCostYuan} 收费"
+        countdownCaption = "请在 ${Format.clock(status.nextBoundaryMs)} 前缴费 · 缴费后另有 ${cfg.exitGraceMinutes} 分钟出场时间"
     } else {
         heroTitle = "计费中 · 第 ${status.paidUnits} 个周期"
         countdownMs = status.nextBoundaryMs - now
@@ -782,8 +816,11 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium,
                 )
-                val ringProgress = if (status.inFree) 1f - status.freeUsedFraction
-                else ((countdownMs.toFloat()) / (cfg.billingUnitMinutes * ParkingMath.MINUTE_MS)).coerceIn(0f, 1f)
+                val ringProgress = when {
+                    status.inFree -> 1f - status.freeUsedFraction
+                    status.inPaidWindow -> status.paidWindowFraction
+                    else -> ((countdownMs.toFloat()) / (cfg.billingUnitMinutes * ParkingMath.MINUTE_MS)).coerceIn(0f, 1f)
+                }
                 Box(contentAlignment = Alignment.Center) {
                     Canvas(modifier = Modifier.size(190.dp)) {
                         val stroke = 12.dp.toPx()
@@ -805,7 +842,11 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            if (status.inSaveWindow) "距计费周期截止" else "倒计时",
+                            when {
+                                status.inSaveWindow -> "距计费周期截止"
+                                status.inPaidWindow -> "距宽限结束"
+                                else -> "倒计时"
+                            },
                             color = Color.White.copy(alpha = 0.8f),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -872,12 +913,32 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
         }
     }
 
-    OutlinedButton(
-        onClick = { viewModel.stopSession() },
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-    ) {
-        Text("结束本次停车", color = MaterialTheme.colorScheme.error)
+    // 操作按钮
+    if (!status.inFree) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(
+                onClick = { viewModel.markPaid() },
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.weight(1f).height(52.dp),
+            ) {
+                Text(if (status.inPaidWindow) "再次缴费" else "我已缴费,稍后驶出", textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
+            }
+            OutlinedButton(
+                onClick = { viewModel.stopSession() },
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.weight(1f).height(52.dp),
+            ) {
+                Text("结束本次停车", color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false)
+            }
+        }
+    } else {
+        OutlinedButton(
+            onClick = { viewModel.stopSession() },
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) {
+            Text("结束本次停车", color = MaterialTheme.colorScheme.error)
+        }
     }
 }
 

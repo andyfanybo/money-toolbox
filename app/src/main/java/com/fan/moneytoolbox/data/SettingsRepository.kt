@@ -21,6 +21,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SettingsRepository(private val context: Context) {
 
     private object Keys {
+        val PAY_BUFFER = intPreferencesKey("cfg_pay_buffer")
         val FREE = intPreferencesKey("cfg_free_minutes")
         val RATE = intPreferencesKey("cfg_rate_yuan")
         val UNIT = intPreferencesKey("cfg_unit_minutes")
@@ -33,6 +34,8 @@ class SettingsRepository(private val context: Context) {
         val S_UNIT = intPreferencesKey("s_unit")
         val S_GRACE = intPreferencesKey("s_grace")
         val S_REMIND_BEFORE = intPreferencesKey("s_remind_before")
+        val S_PAY_BUFFER = intPreferencesKey("s_pay_buffer")
+        val S_PAID_AT = longPreferencesKey("s_paid_at")
         val REMIND_MODE = stringPreferencesKey("remind_mode")
     }
 
@@ -44,6 +47,7 @@ class SettingsRepository(private val context: Context) {
             billingUnitMinutes = p[Keys.UNIT] ?: 60,
             exitGraceMinutes = p[Keys.GRACE] ?: 15,
             remindBeforeFreeMinutes = p[Keys.REMIND_BEFORE] ?: 10,
+            payBufferMinutes = p[Keys.PAY_BUFFER] ?: 2,
         )
     }
 
@@ -53,12 +57,14 @@ class SettingsRepository(private val context: Context) {
         if (entry <= 0L) return@map null
         ParkingSession(
             entryEpochMs = entry,
+            paidAtMs = p[Keys.S_PAID_AT] ?: 0L,
             config = ParkingConfig(
                 freeMinutes = p[Keys.S_FREE] ?: 30,
                 rateYuan = p[Keys.S_RATE] ?: 6,
                 billingUnitMinutes = p[Keys.S_UNIT] ?: 60,
                 exitGraceMinutes = p[Keys.S_GRACE] ?: 15,
                 remindBeforeFreeMinutes = p[Keys.S_REMIND_BEFORE] ?: 10,
+                payBufferMinutes = p[Keys.S_PAY_BUFFER] ?: 2,
             ),
         )
     }
@@ -89,6 +95,7 @@ class SettingsRepository(private val context: Context) {
             p[Keys.UNIT] = cfg.billingUnitMinutes
             p[Keys.GRACE] = cfg.exitGraceMinutes
             p[Keys.REMIND_BEFORE] = cfg.remindBeforeFreeMinutes
+            p[Keys.PAY_BUFFER] = cfg.payBufferMinutes
         }
     }
 
@@ -101,6 +108,8 @@ class SettingsRepository(private val context: Context) {
                 p.remove(Keys.S_UNIT)
                 p.remove(Keys.S_GRACE)
                 p.remove(Keys.S_REMIND_BEFORE)
+                p.remove(Keys.S_PAY_BUFFER)
+                p.remove(Keys.S_PAID_AT)
             } else {
                 p[Keys.SESSION_ENTRY] = session.entryEpochMs
                 p[Keys.S_FREE] = session.config.freeMinutes
@@ -108,6 +117,8 @@ class SettingsRepository(private val context: Context) {
                 p[Keys.S_UNIT] = session.config.billingUnitMinutes
                 p[Keys.S_GRACE] = session.config.exitGraceMinutes
                 p[Keys.S_REMIND_BEFORE] = session.config.remindBeforeFreeMinutes
+                p[Keys.S_PAY_BUFFER] = session.config.payBufferMinutes
+                if (session.paidAtMs > 0) p[Keys.S_PAID_AT] = session.paidAtMs else p.remove(Keys.S_PAID_AT)
             }
         }
     }

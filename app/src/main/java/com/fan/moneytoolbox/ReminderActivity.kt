@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,12 +60,19 @@ class ReminderActivity : ComponentActivity() {
         }
         val title = intent.getStringExtra(EXTRA_TITLE) ?: "停车提醒"
         val text = intent.getStringExtra(EXTRA_TEXT) ?: ""
+        val showPaid = intent.getBooleanExtra(EXTRA_SHOW_PAID, false)
 
         setContent {
             MoneyBoxTheme {
                 PopupCard(
                     title = title,
                     text = text,
+                    showPaid = showPaid,
+                    onPaid = {
+                        sendBroadcast(Intent(this, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_PAID))
+                        NotificationManagerCompat.from(this).cancel(Notifier.REMIND_NOTIF_ID)
+                        finish()
+                    },
                     onDismiss = {
                         NotificationManagerCompat.from(this).cancel(Notifier.REMIND_NOTIF_ID)
                         finish()
@@ -82,11 +90,19 @@ class ReminderActivity : ComponentActivity() {
     companion object {
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_TEXT = "extra_text"
+        const val EXTRA_SHOW_PAID = "extra_show_paid"
     }
 }
 
 @Composable
-private fun PopupCard(title: String, text: String, onDismiss: () -> Unit, onStop: () -> Unit) {
+private fun PopupCard(
+    title: String,
+    text: String,
+    showPaid: Boolean,
+    onPaid: () -> Unit,
+    onDismiss: () -> Unit,
+    onStop: () -> Unit,
+) {
     Box(
         Modifier
             .fillMaxSize()
@@ -127,12 +143,17 @@ private fun PopupCard(title: String, text: String, onDismiss: () -> Unit, onStop
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(4.dp))
+                if (showPaid) {
+                    Button(onClick = onPaid, modifier = Modifier.fillMaxWidth()) { Text("已缴费,稍后驶出") }
+                }
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    OutlinedButton(onClick = onStop, modifier = Modifier.weight(1f)) {
+                        Text("结束本次停车", color = MaterialTheme.colorScheme.error)
+                    }
                     TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("知道了") }
-                    Button(onClick = onStop, modifier = Modifier.weight(1f)) { Text("结束停车") }
                 }
             }
         }
