@@ -145,7 +145,7 @@ money-toolbox/
 - **第 k 次收费提醒**:`锚点 + k·U − B`(未缴费时锚点 = `T + F`)
 - **标记已缴费后**:出场宽限结束时刻 `缴费时刻 + G` 会先提醒一次,之后的收费提醒以它为新周期锚点(对应「缴费后可再停 G 分钟,超时重新计费」的真实规则)
 
-全部逻辑为纯函数实现,见 [`ParkingMath.kt`](app/src/main/java/com/fan/moneytoolbox/data/ParkingModels.kt) 与 16 个单元测试用例。
+全部逻辑为纯函数实现,见 [`ParkingMath.kt`](app/src/main/java/com/fan/moneytoolbox/data/ParkingModels.kt) 与 17 个单元测试用例。
 
 ## 🗺 路线图
 
