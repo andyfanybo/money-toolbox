@@ -10,8 +10,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.fan.moneytoolbox.MainActivity
 import com.fan.moneytoolbox.R
+import com.fan.moneytoolbox.ReminderActivity
 import com.fan.moneytoolbox.data.ParkingMath
 import com.fan.moneytoolbox.data.ParkingSession
+import com.fan.moneytoolbox.data.RemindMode
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -56,44 +58,59 @@ object Notifier {
         )
 
     /**
-     * 根据被触发的提醒时刻,组装免费到期 / 省钱缴费两种通知。
+     * 根据被触发的提醒时刻,生成提醒的标题与正文。
+     * 供通知与弹窗(ReminderActivity)共用。
      */
-    fun notifyReminder(context: Context, session: ParkingSession, remindTimeMs: Long) {
+    fun reminderCopy(session: ParkingSession, remindTimeMs: Long): Pair<String, String> {
         val cfg = session.config
         val freeEnd = ParkingMath.freeEndMs(session)
         val unitMs = cfg.billingUnitMinutes.toLong() * ParkingMath.MINUTE_MS
-
-        val title: String
-        val text: String
-        if (remindTimeMs < freeEnd) {
+        return if (remindTimeMs < freeEnd) {
             // 免费到期提醒
             val remainMin = ((freeEnd - remindTimeMs) / ParkingMath.MINUTE_MS).toInt()
-            title = "免费停车即将结束 ⏰"
-            text = "免费时长还剩约 $remainMin 分钟(${clock(freeEnd)} 到期)。" +
+            "免费停车即将结束 ⏰" to
+                "免费时长还剩约 $remainMin 分钟(${clock(freeEnd)} 到期)。" +
                 "及时驶出一分钱不花;继续停放将按 ¥${cfg.rateYuan}/${ParkingMath.unitText(cfg)} 计费。"
         } else {
             // 省钱缴费提醒: 第 k 个计费周期截止前 saveLead
             val k = ((remindTimeMs + ParkingMath.saveLeadMs(cfg) - freeEnd + unitMs / 2) / unitMs).toInt()
-            val boundary = remindTimeMs + ParkingMath.saveLeadMs(cfg)
-            val deadline = clock(boundary)
-            title = "现在缴费出场,立省 ¥${cfg.rateYuan} 💰"
-            text = "当前按 $k 个计费周期收费(约 ¥${k * cfg.rateYuan})。" +
+            val deadline = clock(remindTimeMs + ParkingMath.saveLeadMs(cfg))
+            "现在缴费出场,立省 ¥${cfg.rateYuan} 💰" to
+                "当前按 $k 个计费周期收费(约 ¥${k * cfg.rateYuan})。" +
                 "在 $deadline 前完成缴费并驶出,就不会被计入第 ${k + 1} 个周期(¥${(k + 1) * cfg.rateYuan})。" +
                 "还要继续停的话忽略本条即可。"
         }
+    }
 
-        val notification: Notification = NotificationCompat.Builder(context, CHANNEL_REMIND)
+    /**
+     * 发出到点提醒。
+     * @param mode 提醒方式: 通知 / 闹钟和提醒(锁屏全屏) / 弹出窗口(通知兜底 + 由 Receiver 拉起弹窗)
+     */
+    fun notifyReminder(context: Context, session: ParkingSession, remindTimeMs: Long, mode: RemindMode) {
+        val (title, text) = reminderCopy(session, remindTimeMs)
+        val builder = NotificationCompat.Builder(context, CHANNEL_REMIND)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(contentIntent(context))
             .setAutoCancel(true)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .addAction(0, "结束本次停车", stopActionIntent(context))
-            .build()
 
-        safeNotify(context, REMIND_NOTIF_ID, notification)
+        if (mode == RemindMode.FULL_SCREEN) {
+            val fullScreenPi = PendingIntent.getActivity(
+                context, 4001,
+                Intent(context, ReminderActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(ReminderActivity.EXTRA_TITLE, title)
+                    .putExtra(ReminderActivity.EXTRA_TEXT, text),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.setFullScreenIntent(fullScreenPi, true)
+        }
+
+        safeNotify(context, REMIND_NOTIF_ID, builder.build())
     }
 
     private fun safeNotify(context: Context, id: Int, notification: Notification) {

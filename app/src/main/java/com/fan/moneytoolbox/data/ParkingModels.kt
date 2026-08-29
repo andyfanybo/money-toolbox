@@ -3,6 +3,18 @@ package com.fan.moneytoolbox.data
 import kotlin.math.ceil
 import kotlin.math.max
 
+/** 提醒方式 */
+enum class RemindMode {
+    /** 普通系统通知 */
+    NOTIFICATION,
+
+    /** 闹钟和提醒: 锁屏时全屏亮起并响铃(系统全屏意图) */
+    FULL_SCREEN,
+
+    /** 弹出窗口提醒: 在其他应用上方弹出窗口 */
+    OVERLAY,
+}
+
 /**
  * 停车收费提醒的配置。
  *

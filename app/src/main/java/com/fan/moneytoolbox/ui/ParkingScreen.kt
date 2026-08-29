@@ -4,6 +4,7 @@ package com.fan.moneytoolbox.ui
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,11 +15,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,10 +37,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.LocalParking
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,6 +54,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +64,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,11 +74,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -83,21 +88,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.fan.moneytoolbox.ParkingViewModel
 import com.fan.moneytoolbox.data.ParkingConfig
 import com.fan.moneytoolbox.data.ParkingMath
 import com.fan.moneytoolbox.data.ParkingSession
+import com.fan.moneytoolbox.data.RemindMode
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import kotlin.math.ceil
 
 private val HeroGradient = Brush.linearGradient(
     listOf(Color(0xFF10B981), Color(0xFF047857))
 )
 
 private val Gold = Color(0xFFFBBF24)
+
+// 预设选项
+private val FREE_PRESETS = listOf(5, 10, 15, 30)
+private val UNIT_PRESETS = listOf(15, 30, 60)
+private val GRACE_PRESETS = listOf(5, 10, 15, 30)
 
 @Composable
 fun ParkingScreen(viewModel: ParkingViewModel, onBack: () -> Unit) {
@@ -194,6 +208,69 @@ private fun ExactAlarmBanner() {
     }
 }
 
+// ---------------------------------------------------------------- 通用小组件
+
+@Composable
+private fun SectionHeader(title: String, subtitle: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 预设值 + 「自定义」的一排筛选块 */
+@Composable
+private fun ValueChips(
+    presets: List<Int>,
+    value: Int,
+    format: (Int) -> String,
+    onSelect: (Int) -> Unit,
+    onCustomClick: () -> Unit,
+) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        presets.forEach { p ->
+            FilterChip(
+                selected = value == p,
+                onClick = { onSelect(p) },
+                label = { Text(format(p)) },
+            )
+        }
+        FilterChip(
+            selected = presets.none { it == value },
+            onClick = onCustomClick,
+            label = { Text("自定义") },
+        )
+    }
+}
+
+/** 数字输入框(纯数字键盘,自动收敛到合法区间) */
+@Composable
+private fun NumberField(
+    value: Int,
+    label: String,
+    suffixText: String,
+    range: IntRange,
+    modifier: Modifier = Modifier,
+    onChange: (Int) -> Unit,
+) {
+    OutlinedTextField(
+        value = value.toString(),
+        onValueChange = { v ->
+            val n = v.filter { ch -> ch.isDigit() }.take(4).toIntOrNull() ?: 0
+            onChange(n.coerceIn(range))
+        },
+        label = { Text(label) },
+        suffix = { Text(suffixText) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        modifier = modifier,
+    )
+}
+
 // ---------------------------------------------------------------- 设置区
 
 @Composable
@@ -250,13 +327,13 @@ private fun SetupSection(viewModel: ParkingViewModel) {
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EntryButton("此刻", Modifier.weight(1f)) {
                     entryMs = System.currentTimeMillis() - System.currentTimeMillis() % ParkingMath.MINUTE_MS
-                }) { Text("此刻") }
-                TextButton(onClick = { entryMs -= 5 * ParkingMath.MINUTE_MS }) { Text("−5 分") }
-                TextButton(onClick = { entryMs += 5 * ParkingMath.MINUTE_MS }) { Text("+5 分") }
-                TextButton(onClick = { showDatePicker = true }) { Text("调整…") }
+                }
+                EntryButton("−5 分", Modifier.weight(1f)) { entryMs -= 5 * ParkingMath.MINUTE_MS }
+                EntryButton("+5 分", Modifier.weight(1f)) { entryMs += 5 * ParkingMath.MINUTE_MS }
+                EntryButton("自定义", Modifier.weight(1f)) { showDatePicker = true }
             }
         }
     }
@@ -265,15 +342,30 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     Card(shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("免费时长", "到期前 ${cfg.remindBeforeFreeMinutes} 分钟会提醒你")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0 to "无", 15 to "15 分钟", 30 to "30 分钟", 45 to "45 分钟", 60 to "1 小时", 90 to "90 分钟", 120 to "2 小时")
-                    .forEach { (value, label) ->
-                        FilterChip(
-                            selected = cfg.freeMinutes == value,
-                            onClick = { update { it.copy(freeMinutes = value) } },
-                            label = { Text(label) },
-                        )
+            ValueChips(
+                presets = FREE_PRESETS,
+                value = cfg.freeMinutes,
+                format = { "$it 分钟" },
+                onSelect = { v -> update { it.copy(freeMinutes = v) } },
+                onCustomClick = {
+                    update { c ->
+                        c.copy(freeMinutes = if (c.freeMinutes in FREE_PRESETS) 20 else c.freeMinutes)
                     }
+                },
+            )
+            if (cfg.freeMinutes !in FREE_PRESETS) {
+                NumberField(
+                    value = cfg.freeMinutes,
+                    label = "自定义免费时长",
+                    suffixText = "分钟",
+                    range = 0..1440,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { v -> update { it.copy(freeMinutes = v) } }
+                Text(
+                    "输入 0 表示没有免费时长",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("提前提醒", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -292,27 +384,43 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     Card(shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("收费规则", "超出免费时长后如何计费")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(30 to "每 30 分钟", 60 to "每 1 小时").forEach { (value, label) ->
-                    FilterChip(
-                        selected = cfg.billingUnitMinutes == value,
-                        onClick = { update { it.copy(billingUnitMinutes = value) } },
-                        label = { Text(label) },
-                    )
-                }
-            }
-            OutlinedTextField(
-                value = cfg.rateYuan.toString(),
-                onValueChange = { v ->
-                    val n = v.filter { ch -> ch.isDigit() }.take(4).toIntOrNull() ?: 0
-                    update { it.copy(rateYuan = n) }
+            ValueChips(
+                presets = UNIT_PRESETS,
+                value = cfg.billingUnitMinutes,
+                format = { if (it % 60 == 0) "每 ${it / 60} 小时" else "每 $it 分钟" },
+                onSelect = { v -> update { it.copy(billingUnitMinutes = v) } },
+                onCustomClick = {
+                    update { c ->
+                        c.copy(billingUnitMinutes = if (c.billingUnitMinutes in UNIT_PRESETS) 45 else c.billingUnitMinutes)
+                    }
                 },
-                label = { Text("每个计费单元收费") },
-                suffix = { Text("元") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
             )
+            if (cfg.billingUnitMinutes !in UNIT_PRESETS) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NumberField(
+                        value = cfg.billingUnitMinutes,
+                        label = "自定义时长",
+                        suffixText = "分钟",
+                        range = 1..720,
+                        modifier = Modifier.weight(1f),
+                    ) { v -> update { it.copy(billingUnitMinutes = v) } }
+                    NumberField(
+                        value = cfg.rateYuan,
+                        label = "收费",
+                        suffixText = "元",
+                        range = 0..999,
+                        modifier = Modifier.weight(1f),
+                    ) { v -> update { it.copy(rateYuan = v) } }
+                }
+            } else {
+                NumberField(
+                    value = cfg.rateYuan,
+                    label = "收费",
+                    suffixText = "元",
+                    range = 0..999,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { v -> update { it.copy(rateYuan = v) } }
+            }
         }
     }
 
@@ -320,14 +428,25 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     Card(shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("缴费后出场宽限", "一般 10~15 分钟,按停车场公示为准")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(5, 10, 15, 20, 30).forEach { v ->
-                    FilterChip(
-                        selected = cfg.exitGraceMinutes == v,
-                        onClick = { update { it.copy(exitGraceMinutes = v) } },
-                        label = { Text("${v} 分钟") },
-                    )
-                }
+            ValueChips(
+                presets = GRACE_PRESETS,
+                value = cfg.exitGraceMinutes,
+                format = { "$it 分钟" },
+                onSelect = { v -> update { it.copy(exitGraceMinutes = v) } },
+                onCustomClick = {
+                    update { c ->
+                        c.copy(exitGraceMinutes = if (c.exitGraceMinutes in GRACE_PRESETS) 20 else c.exitGraceMinutes)
+                    }
+                },
+            )
+            if (cfg.exitGraceMinutes !in GRACE_PRESETS) {
+                NumberField(
+                    value = cfg.exitGraceMinutes,
+                    label = "自定义宽限",
+                    suffixText = "分钟",
+                    range = 1..180,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { v -> update { it.copy(exitGraceMinutes = v) } }
             }
             Text(
                 "系统会在每个计费周期截止前 ${cfg.exitGraceMinutes} 分钟提醒你缴费,拿到车驶出闸口正好不超时。",
@@ -337,34 +456,11 @@ private fun SetupSection(viewModel: ParkingViewModel) {
         }
     }
 
-    // 预览卡片
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-    ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val preview = ParkingSession(entryMs, cfg)
-            val freeEnd = ParkingMath.freeEndMs(preview)
-            val firstSave = ParkingMath.kthSaveRemindMs(preview, 1)
-            Text(
-                "替你算好了",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-            Text(
-                buildString {
-                    append("${Format.clock(entryMs)} 入场。")
-                    if (cfg.freeMinutes > 0) {
-                        append("${Format.clock(freeEnd)} 免费结束,")
-                    }
-                    append("此后按 ¥${cfg.rateYuan}/${ParkingMath.unitText(cfg)} 计费。")
-                    append("${Format.clock(firstSave)} 提醒你缴费驶出,可省 ¥${cfg.rateYuan}。")
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-        }
-    }
+    // 提醒方式卡片
+    RemindModeSection(viewModel)
+
+    // 替你算好了(表格)
+    PreviewCard(entryMs, cfg)
 
     Button(
         onClick = { viewModel.startSession(entryMs, cfg) },
@@ -425,14 +521,211 @@ private fun SetupSection(viewModel: ParkingViewModel) {
 }
 
 @Composable
-private fun SectionHeader(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Text(
-            subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+private fun EntryButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 4.dp),
+    ) {
+        Text(label)
+    }
+}
+
+// ---------------------------------------------------------------- 提醒方式
+
+@Composable
+private fun RemindModeSection(viewModel: ParkingViewModel) {
+    val context = LocalContext.current
+    val mode by viewModel.remindMode.collectAsState()
+
+    var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var fullScreenGranted by remember { mutableStateOf(fullScreenIntentGranted(context)) }
+
+    // 从系统设置页返回时刷新授权状态
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                overlayGranted = Settings.canDrawOverlays(context)
+                fullScreenGranted = fullScreenIntentGranted(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Card(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            SectionHeader("提醒方式", "到点时怎么提醒你,可随时更换")
+            RemindModeRow(
+                title = "通知",
+                description = "普通系统通知,适合大多数情况",
+                selected = mode == RemindMode.NOTIFICATION,
+                granted = true,
+                onGrant = null,
+                onSelect = { viewModel.setRemindMode(RemindMode.NOTIFICATION) },
+            )
+            RemindModeRow(
+                title = "闹钟和提醒",
+                description = "锁屏时全屏亮起并响铃,像闹钟一样醒目",
+                selected = mode == RemindMode.FULL_SCREEN,
+                granted = fullScreenGranted,
+                onGrant = { openFullScreenIntentSettings(context) },
+                onSelect = { viewModel.setRemindMode(RemindMode.FULL_SCREEN) },
+            )
+            RemindModeRow(
+                title = "弹出窗口提醒",
+                description = "在其他应用上方弹出窗口,像来电一样",
+                selected = mode == RemindMode.OVERLAY,
+                granted = overlayGranted,
+                onGrant = { openOverlaySettings(context) },
+                onSelect = { viewModel.setRemindMode(RemindMode.OVERLAY) },
+            )
+            Text(
+                "小米/华为等系统若弹窗未显示,请在系统设置的权限管理中允许本应用「锁屏显示」「后台弹出界面」。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RemindModeRow(
+    title: String,
+    description: String,
+    selected: Boolean,
+    granted: Boolean,
+    onGrant: (() -> Unit)?,
+    onSelect: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (!granted && onGrant != null) {
+            TextButton(onClick = onGrant) { Text("去授权") }
+        }
+    }
+}
+
+private fun fullScreenIntentGranted(context: Context): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .canUseFullScreenIntent()
+    } else {
+        true
+    }
+
+private fun openOverlaySettings(context: Context) {
+    try {
+        context.startActivity(
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName))
         )
+    } catch (_: Exception) {
+    }
+}
+
+private fun openFullScreenIntentSettings(context: Context) {
+    try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            context.startActivity(
+                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + context.packageName))
+            )
+        } else {
+            openAppDetails(context)
+        }
+    } catch (_: Exception) {
+        openAppDetails(context)
+    }
+}
+
+private fun openAppDetails(context: Context) {
+    try {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))
+        )
+    } catch (_: Exception) {
+    }
+}
+
+// ---------------------------------------------------------------- 替你算好了(表格)
+
+@Composable
+private fun PreviewCard(entryMs: Long, cfg: ParkingConfig) {
+    val preview = ParkingSession(entryMs, cfg)
+    val freeEnd = ParkingMath.freeEndMs(preview)
+    val firstSave = ParkingMath.kthSaveRemindMs(preview, 1)
+    val secondSave = ParkingMath.kthSaveRemindMs(preview, 2)
+    val twoHourCost = run {
+        val paidMinutes = (120L - cfg.freeMinutes).coerceAtLeast(0L)
+        ceil(paidMinutes.toDouble() / cfg.billingUnitMinutes).toInt() * cfg.rateYuan
+    }
+
+    val rows = buildList {
+        add("入场时间" to Format.dateTime(entryMs))
+        if (cfg.freeMinutes > 0) {
+            add("免费截止" to "${Format.clock(freeEnd)}(免费 ${cfg.freeMinutes} 分钟)")
+        }
+        add("开始计费" to "${Format.clock(freeEnd)} 起 ¥${cfg.rateYuan}/${ParkingMath.unitText(cfg)}")
+        add("首次省钱提醒" to "${Format.clock(firstSave)} 缴费驶出省 ¥${cfg.rateYuan}")
+        add("下次省钱提醒" to Format.clock(secondSave))
+        add("若停满 2 小时" to "约付 ¥$twoHourCost")
+    }
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Text(
+                "替你算好了",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            rows.forEachIndexed { index, (label, value) ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f),
+                        modifier = Modifier.width(116.dp),
+                    )
+                    Text(
+                        value,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (index != rows.lastIndex) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
+                    )
+                }
+            }
+        }
     }
 }
 

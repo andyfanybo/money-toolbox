@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fan.moneytoolbox.data.ParkingConfig
 import com.fan.moneytoolbox.data.ParkingSession
+import com.fan.moneytoolbox.data.RemindMode
 import com.fan.moneytoolbox.data.SettingsRepository
 import com.fan.moneytoolbox.notify.Notifier
 import com.fan.moneytoolbox.notify.ReminderScheduler
@@ -25,6 +26,14 @@ class ParkingViewModel(app: Application) : AndroidViewModel(app) {
     /** 进行中的停车会话 */
     val session: StateFlow<ParkingSession?> = repo.sessionFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** 提醒方式 */
+    val remindMode: StateFlow<RemindMode> = repo.remindModeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, RemindMode.NOTIFICATION)
+
+    fun setRemindMode(mode: RemindMode) {
+        viewModelScope.launch { repo.saveRemindMode(mode) }
+    }
 
     fun startSession(entryEpochMs: Long, cfg: ParkingConfig) {
         viewModelScope.launch {

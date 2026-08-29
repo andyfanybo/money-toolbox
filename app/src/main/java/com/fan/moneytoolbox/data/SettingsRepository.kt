@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -32,6 +33,7 @@ class SettingsRepository(private val context: Context) {
         val S_UNIT = intPreferencesKey("s_unit")
         val S_GRACE = intPreferencesKey("s_grace")
         val S_REMIND_BEFORE = intPreferencesKey("s_remind_before")
+        val REMIND_MODE = stringPreferencesKey("remind_mode")
     }
 
     /** 默认配置(上次使用的值) */
@@ -59,6 +61,25 @@ class SettingsRepository(private val context: Context) {
                 remindBeforeFreeMinutes = p[Keys.S_REMIND_BEFORE] ?: 10,
             ),
         )
+    }
+
+    /** 提醒方式 */
+    val remindModeFlow: Flow<RemindMode> = context.dataStore.data.map { p ->
+        when (p[Keys.REMIND_MODE]) {
+            "full_screen" -> RemindMode.FULL_SCREEN
+            "overlay" -> RemindMode.OVERLAY
+            else -> RemindMode.NOTIFICATION
+        }
+    }
+
+    suspend fun saveRemindMode(mode: RemindMode) {
+        context.dataStore.edit { p ->
+            p[Keys.REMIND_MODE] = when (mode) {
+                RemindMode.FULL_SCREEN -> "full_screen"
+                RemindMode.OVERLAY -> "overlay"
+                RemindMode.NOTIFICATION -> "notification"
+            }
+        }
     }
 
     suspend fun saveConfig(cfg: ParkingConfig) {
@@ -93,4 +114,6 @@ class SettingsRepository(private val context: Context) {
 
     /** 供 BroadcastReceiver 使用的同步读取(数据量极小,毫秒级) */
     fun sessionBlocking(): ParkingSession? = kotlinx.coroutines.runBlocking { sessionFlow.first() }
+
+    fun remindModeBlocking(): RemindMode = kotlinx.coroutines.runBlocking { remindModeFlow.first() }
 }
