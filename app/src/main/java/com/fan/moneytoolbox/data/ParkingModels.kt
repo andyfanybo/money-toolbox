@@ -45,6 +45,8 @@ data class ParkingSession(
     val config: ParkingConfig,
     /** 最近一次标记"已缴费"的时刻;0 表示未缴费 */
     val paidAtMs: Long = 0,
+    /** 本次停车的唯一标识,用于识别已经失效的闹钟 */
+    val sessionId: String = "",
 )
 
 /** 纯函数的计费/提醒时间计算,便于单元测试 */
@@ -68,12 +70,28 @@ object ParkingMath {
     fun coverageEndMs(s: ParkingSession): Long =
         effectivePaidAtMs(s) + s.config.exitGraceMinutes * MINUTE_MS
 
-    /** "免费即将到期"提醒时刻;无免费时长或提前量不合法时返回 null */
+    /** "免费即将到期"提醒时刻;提前量超过免费时长时仍保证入场后、到期前提醒 */
     fun freeRemindMs(s: ParkingSession): Long? {
         val cfg = s.config
         if (cfg.freeMinutes <= 0 || cfg.remindBeforeFreeMinutes <= 0) return null
-        if (cfg.remindBeforeFreeMinutes >= cfg.freeMinutes) return null
-        return s.entryEpochMs + (cfg.freeMinutes - cfg.remindBeforeFreeMinutes) * MINUTE_MS
+        val freeDurationMs = cfg.freeMinutes.toLong() * MINUTE_MS
+        val requestedMs = freeDurationMs - cfg.remindBeforeFreeMinutes.toLong() * MINUTE_MS
+        val fallbackMs = freeDurationMs - minOf(MINUTE_MS, freeDurationMs / 2)
+        return s.entryEpochMs + if (requestedMs > 0) requestedMs else fallbackMs
+    }
+
+    /** 检查闹钟是否仍属于当前会话,避免已缴费或重新开始后弹出旧提醒 */
+    fun isReminderForSession(s: ParkingSession, remindMs: Long, sessionId: String = s.sessionId): Boolean {
+        if (sessionId != s.sessionId) return false
+        if (remindMs <= s.entryEpochMs) return false
+        val paid = effectivePaidAtMs(s)
+        if (paid == 0L && freeRemindMs(s) == remindMs) return true
+        if (paid > 0L && coverageEndMs(s) == remindMs) return true
+        val anchor = if (paid > 0L) coverageEndMs(s) else freeEndMs(s)
+        val unitMs = s.config.billingUnitMinutes.toLong() * MINUTE_MS
+        if (unitMs <= 0L) return false
+        val delta = remindMs - anchor + payBufferMs(s.config)
+        return delta >= unitMs && delta % unitMs == 0L
     }
 
     /**
@@ -222,6 +240,7 @@ object ParkingMath {
 
     /** 时间轴展示: 最近一条已过的提醒(提供上下文) + 接下来的提醒 */
     fun reminderTimeline(s: ParkingSession, nowMs: Long, maxItems: Int = 4): List<ReminderItem> {
+        if (maxItems <= 0) return emptyList()
         val items = mutableListOf<ReminderItem>()
         freeRemindMs(s)?.let {
             items += ReminderItem(it, "免费到期提醒", isSaveRemind = false, passed = it <= nowMs)
@@ -232,9 +251,14 @@ object ParkingMath {
             items += ReminderItem(covEnd, "出场宽限结束", isSaveRemind = false, passed = covEnd <= nowMs)
         }
         val anchor = if (paid > 0) coverageEndMs(s) else freeEndMs(s)
-        var k = 1
-        while (k <= maxItems + 2) {
-            val t = kthSaveRemindMs(s, k, anchor)
+        val unitMs = s.config.billingUnitMinutes.toLong() * MINUTE_MS
+        if (unitMs <= 0L) return items.sortedBy { it.timeMs }.takeLast(1)
+        val elapsed = nowMs - anchor + payBufferMs(s.config)
+        val nextK = (Math.floorDiv(elapsed, unitMs) + 1).coerceAtLeast(1)
+        var k = (nextK - 1).coerceAtLeast(1)
+        val lastK = nextK + maxItems
+        while (k <= lastK) {
+            val t = anchor + k * unitMs - payBufferMs(s.config)
             items += ReminderItem(t, "收费提醒 #$k(缴费驶出省 ¥${s.config.rateYuan})", isSaveRemind = true, passed = t <= nowMs)
             k++
         }

@@ -115,6 +115,14 @@ private val UNIT_PRESETS = listOf(15, 30, 60)
 private val GRACE_PRESETS = listOf(5, 10, 15, 30)
 private val BUFFER_PRESETS = listOf(1, 2, 3, 5)
 
+private fun freeReminderLeadText(cfg: ParkingConfig): String {
+    val session = ParkingSession(0L, cfg)
+    val remind = ParkingMath.freeRemindMs(session) ?: return "不会发送免费到期提醒"
+    val leadSeconds = (ParkingMath.freeEndMs(session) - remind) / 1000
+    return if (leadSeconds % 60L == 0L) "到期前 ${leadSeconds / 60L} 分钟提醒你"
+    else "到期前 $leadSeconds 秒提醒你"
+}
+
 @Composable
 fun ParkingScreen(viewModel: ParkingViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -343,7 +351,7 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     // 免费时长卡片
     Card(shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionHeader("免费时长", "到期前 ${cfg.remindBeforeFreeMinutes} 分钟会提醒你")
+            SectionHeader("免费时长", freeReminderLeadText(cfg))
             ValueChips(
                 presets = FREE_PRESETS,
                 value = cfg.freeMinutes,
@@ -700,7 +708,7 @@ private fun PreviewCard(entryMs: Long, cfg: ParkingConfig) {
     val rows = buildList {
         add("入场时间" to Format.dateTime(entryMs))
         if (freeRemind != null) {
-            add("首次提醒" to "${Format.clock(freeRemind)}(免费截止前 ${cfg.remindBeforeFreeMinutes} 分钟)")
+            add("首次提醒" to "${Format.clock(freeRemind)}(${freeReminderLeadText(cfg)})")
         }
         add("首次收费提醒" to "${Format.clock(firstSave)}(周期截止前 ${cfg.payBufferMinutes} 分钟)")
         add("下次收费提醒" to Format.clock(secondSave))
@@ -867,7 +875,7 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
     Card(shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SummaryRow("入场时间", Format.dateTime(session.entryEpochMs))
-            if (cfg.freeMinutes > 0) SummaryRow("免费时长", "${cfg.freeMinutes} 分钟(提前 ${cfg.remindBeforeFreeMinutes} 分钟提醒)")
+            if (cfg.freeMinutes > 0) SummaryRow("免费时长", "${cfg.freeMinutes} 分钟(${freeReminderLeadText(cfg)})")
             SummaryRow("计费规则", "¥${cfg.rateYuan} / ${ParkingMath.unitText(cfg)}")
             SummaryRow("出场宽限", "${cfg.exitGraceMinutes} 分钟")
         }

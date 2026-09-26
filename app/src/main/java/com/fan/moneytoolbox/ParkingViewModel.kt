@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class ParkingViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -38,7 +39,7 @@ class ParkingViewModel(app: Application) : AndroidViewModel(app) {
     fun startSession(entryEpochMs: Long, cfg: ParkingConfig) {
         viewModelScope.launch {
             repo.saveConfig(cfg)
-            repo.saveSession(ParkingSession(entryEpochMs, cfg))
+            repo.saveSession(ParkingSession(entryEpochMs, cfg, sessionId = UUID.randomUUID().toString()))
             ReminderScheduler.scheduleNext(getApplication())
         }
     }
