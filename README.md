@@ -6,7 +6,7 @@
 
 <p align="center">
   一款专注「帮你省下每一笔不必要开支」的安卓小工具合集。<br/>
-  第一个工具:<b>停车收费提醒</b> —— 免费时长不浪费,整点计费不多付。
+  工具包括<b>停车收费提醒</b>与<b>续费提醒</b> —— 免费时长不浪费,各类缴费不错过。
 </p>
 
 <p align="center">
@@ -54,6 +54,14 @@
 - 📊 **实时面板**:免费剩余倒计时、当前计费周期、预计费用、省钱窗口高亮、提醒时间轴
 - 🔒 **纯本地**:无网络权限,不收集任何数据;配置自动记忆,下次直接开停
 - 🎨 **现代 UI**:Jetpack Compose + Material 3,深色模式自适应,Android 12+ 支持主题图标
+
+## 🔁 续费提醒
+
+在首页打开「续费提醒」,添加停车月租、影音会员或其他账单。填写名称、下次到期日、续费周期(单次/每周/每月/每季/每年)、可选金额和提前提醒天数(0–365 天)。应用会在提前日期和到期当天的 09:00 安排本地通知;提前日期已过时仍保留到期当天提醒。
+
+到期后项目会显示逾期状态。确认实际缴费后点「已续费」,周期性项目才会进入下一个到期日;单次项目变为已完成。月底和闰日的续费日期按最初日期计算,例如 1 月 31 日的月费在 2 月到期于 28 日,3 月恢复到 31 日。数据仅保存在本机,应用不会代扣款或自动续费。
+
+手机重启或系统时区变化后会重新安排通知。请允许通知权限;若未授予精确闹钟权限,系统可能延迟当天的提醒时间。
 
 ## 📲 下载安装
 
@@ -124,12 +132,15 @@ money-toolbox/
 ├── .github/workflows/release.yml   # CI: 测试 + 双 ABI 构建 + 发布
 ├── app/src/main/java/com/fan/moneytoolbox/
 │   ├── data/ParkingModels.kt       # 计费与提醒时间算法(纯函数,含单元测试)
-│   ├── data/SettingsRepository.kt  # DataStore 本地持久化
+│   ├── data/SettingsRepository.kt  # 停车配置与会话持久化
+│   ├── data/RenewalModels.kt       # 续费周期与日期计算
+│   ├── data/RenewalRepository.kt   # 续费项目本地持久化
 │   ├── notify/ReminderScheduler.kt # 精确闹钟调度(单闹钟滚动排程)
 │   ├── notify/AlarmReceiver.kt     # 闹钟触发 → 通知;支持通知栏直接结束停车
 │   ├── notify/BootReceiver.kt      # 开机恢复提醒
 │   ├── notify/Notifier.kt          # 通知渠道与文案
 │   ├── ui/HomeScreen.kt            # 工具箱首页
+│   ├── ui/RenewalScreen.kt         # 续费项目列表与编辑
 │   ├── ui/ParkingScreen.kt         # 停车提醒: 设置表单 + 实时面板
 │   └── ui/theme/Theme.kt           # Material 3 主题(翡翠绿品牌色)
 ├── app/src/test/                   # ParkingMathTest: 21 个计费与提醒边界用例
@@ -149,7 +160,7 @@ money-toolbox/
 
 ## 🗺 路线图
 
-- [ ] 更多省钱工具:加油优惠提醒、会员自动续费提醒、外卖满减计算器
+- [ ] 更多省钱工具:加油优惠提醒、外卖满减计算器
 - [ ] 停车记录与「累计帮你省了多少」统计
 - [ ] 桌面小组件(实时倒计时)
 - [ ] 阶梯计费(首小时后递增)支持
