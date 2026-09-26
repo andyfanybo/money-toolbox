@@ -6,6 +6,7 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import com.fan.moneytoolbox.ReminderActivity
+import com.fan.moneytoolbox.data.ParkingMath
 import com.fan.moneytoolbox.data.RemindMode
 import com.fan.moneytoolbox.data.SettingsRepository
 
@@ -15,9 +16,10 @@ class AlarmReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_FIRE -> {
                 val remindMs = intent.getLongExtra(EXTRA_REMIND_MS, 0L)
+                val sessionId = intent.getStringExtra(EXTRA_SESSION_ID) ?: ""
                 val repo = SettingsRepository(context)
                 val session = repo.sessionBlocking()
-                if (session != null && remindMs > 0L) {
+                if (session != null && ParkingMath.isReminderForSession(session, remindMs, sessionId)) {
                     val mode = repo.remindModeBlocking()
                     val copy = Notifier.reminderCopy(session, remindMs)
                     Notifier.notifyReminder(context, session, remindMs, mode)
@@ -66,5 +68,6 @@ class AlarmReceiver : BroadcastReceiver() {
         const val ACTION_STOP = "com.fan.moneytoolbox.ACTION_STOP_SESSION"
         const val ACTION_PAID = "com.fan.moneytoolbox.ACTION_MARK_PAID"
         const val EXTRA_REMIND_MS = "remind_ms"
+        const val EXTRA_SESSION_ID = "session_id"
     }
 }

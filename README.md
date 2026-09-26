@@ -38,7 +38,7 @@
 
 | 时间 | 状态 |
 |---|---|
-| 07:50 | 🅿️ **首次提醒**:免费 08:00 结束,及时驶出不花钱 |
+| 08:50 | 🅿️ **首次提醒**:免费 09:00 结束,及时驶出不花钱 |
 | 09:58 | 💰 **首次收费提醒**:10:00 周期截止前缴费,只付 **¥6**;缴费后还有 15 分钟出场时间(到 10:13) |
 | 10:13 | ⏰ 若仍未驶出,从现在起按下一周期计费 |
 | 10:58 | 💰 第二次收费提醒(11:00 周期截止前),以此类推 |
@@ -132,7 +132,7 @@ money-toolbox/
 │   ├── ui/HomeScreen.kt            # 工具箱首页
 │   ├── ui/ParkingScreen.kt         # 停车提醒: 设置表单 + 实时面板
 │   └── ui/theme/Theme.kt           # Material 3 主题(翡翠绿品牌色)
-├── app/src/test/                   # ParkingMathTest: 12 个计费边界用例
+├── app/src/test/                   # ParkingMathTest: 21 个计费与提醒边界用例
 ├── keystore/moneybox.keystore      # 便捷签名(可换成 Secrets 私密签名)
 └── tools/gen_icons.py              # 图标生成脚本(Pillow)
 ```
@@ -141,11 +141,11 @@ money-toolbox/
 
 设入场时刻 `T`,免费时长 `F`,计费单元 `U`,缴费缓冲 `B`(默认 2 分钟),出场宽限 `G`,提前提醒量 `X`:
 
-- **首次提醒(免费到期)**:`T + F − X`
+- **首次提醒(免费到期)**:通常为 `T + F − X`;若 `X ≥ F`,则在免费结束前 1 分钟提醒(免费时长仅 1 分钟时提前 30 秒)
 - **第 k 次收费提醒**:`锚点 + k·U − B`(未缴费时锚点 = `T + F`)
 - **标记已缴费后**:出场宽限结束时刻 `缴费时刻 + G` 会先提醒一次,之后的收费提醒以它为新周期锚点(对应「缴费后可再停 G 分钟,超时重新计费」的真实规则)
 
-全部逻辑为纯函数实现,见 [`ParkingMath.kt`](app/src/main/java/com/fan/moneytoolbox/data/ParkingModels.kt) 与 17 个单元测试用例。
+全部逻辑为纯函数实现,见 [`ParkingModels.kt`](app/src/main/java/com/fan/moneytoolbox/data/ParkingModels.kt) 与 21 个单元测试用例。
 
 ## 🗺 路线图
 

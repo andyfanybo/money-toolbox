@@ -17,12 +17,13 @@ object ReminderScheduler {
     private fun alarmManager(context: Context): AlarmManager =
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    private fun firePendingIntent(context: Context, remindTimeMs: Long): PendingIntent =
+    private fun firePendingIntent(context: Context, remindTimeMs: Long, sessionId: String): PendingIntent =
         PendingIntent.getBroadcast(
             context, 2001,
             Intent(context, AlarmReceiver::class.java)
                 .setAction(AlarmReceiver.ACTION_FIRE)
-                .putExtra(AlarmReceiver.EXTRA_REMIND_MS, remindTimeMs),
+                .putExtra(AlarmReceiver.EXTRA_REMIND_MS, remindTimeMs)
+                .putExtra(AlarmReceiver.EXTRA_SESSION_ID, sessionId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -32,7 +33,7 @@ object ReminderScheduler {
         val next = ParkingMath.nextReminderMs(session, System.currentTimeMillis()) ?: return
 
         val am = alarmManager(context)
-        val pi = firePendingIntent(context, next)
+        val pi = firePendingIntent(context, next, session.sessionId)
         val canExact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
         if (canExact) {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi)
@@ -43,6 +44,6 @@ object ReminderScheduler {
     }
 
     fun cancel(context: Context) {
-        alarmManager(context).cancel(firePendingIntent(context, 0L))
+        alarmManager(context).cancel(firePendingIntent(context, 0L, ""))
     }
 }
