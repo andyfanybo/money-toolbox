@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,6 +44,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -77,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -114,6 +117,16 @@ private val FREE_PRESETS = listOf(5, 10, 15, 30)
 private val UNIT_PRESETS = listOf(15, 30, 60)
 private val GRACE_PRESETS = listOf(5, 10, 15, 30)
 private val BUFFER_PRESETS = listOf(1, 2, 3, 5)
+
+/** 设置和状态卡片统一占满内容区；内部选项数量或字体变化只影响换行，不影响背景宽度。 */
+@Composable
+private fun FullWidthCard(
+    shape: Shape,
+    colors: CardColors = CardDefaults.cardColors(),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = shape, colors = colors, content = content)
+}
 
 @Composable
 fun ParkingScreen(viewModel: ParkingViewModel, onBack: () -> Unit) {
@@ -171,7 +184,7 @@ private fun ExactAlarmBanner() {
     val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     if (am.canScheduleExactAlarms()) return
 
-    Card(
+    FullWidthCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
     ) {
@@ -214,7 +227,7 @@ private fun ExactAlarmBanner() {
 
 @Composable
 private fun SectionHeader(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(
             subtitle,
@@ -233,7 +246,7 @@ private fun ValueChips(
     onSelect: (Int) -> Unit,
     onCustomClick: () -> Unit,
 ) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         presets.forEach { p ->
             FilterChip(
                 selected = value == p,
@@ -295,8 +308,8 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     }
 
     // 入场时间卡片
-    Card(shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    FullWidthCard(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                     Icon(
@@ -341,8 +354,8 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     }
 
     // 免费时长卡片
-    Card(shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    FullWidthCard(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("免费时长", "到期前 ${cfg.remindBeforeFreeMinutes} 分钟会提醒你")
             ValueChips(
                 presets = FREE_PRESETS,
@@ -372,7 +385,7 @@ private fun SetupSection(viewModel: ParkingViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("提前提醒", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(5, 10, 15).forEach { v ->
                     FilterChip(
                         selected = cfg.remindBeforeFreeMinutes == v,
@@ -385,8 +398,8 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     }
 
     // 收费规则卡片
-    Card(shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    FullWidthCard(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("收费规则", "超出免费时长后如何计费")
             ValueChips(
                 presets = UNIT_PRESETS,
@@ -429,8 +442,8 @@ private fun SetupSection(viewModel: ParkingViewModel) {
     }
 
     // 缴费与出场宽限卡片
-    Card(shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    FullWidthCard(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("缴费与出场宽限", "缴费后一般有 10~15 分钟出场时间")
             ValueChips(
                 presets = GRACE_PRESETS,
@@ -459,7 +472,7 @@ private fun SetupSection(viewModel: ParkingViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BUFFER_PRESETS.forEach { v ->
                     FilterChip(
                         selected = cfg.payBufferMinutes == v,
@@ -574,8 +587,8 @@ private fun RemindModeSection(viewModel: ParkingViewModel) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Card(shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    FullWidthCard(shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SectionHeader("提醒方式", "到点时怎么提醒你,可随时更换")
             RemindModeRow(
                 title = "通知",
@@ -707,11 +720,11 @@ private fun PreviewCard(entryMs: Long, cfg: ParkingConfig) {
         add("若停满 2 小时" to "约付 ¥$twoHourCost")
     }
 
-    Card(
+    FullWidthCard(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Text(
                 "替你算好了",
                 style = MaterialTheme.typography.titleSmall,
@@ -794,7 +807,7 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
     }
 
     // 主卡: 渐变背景 + 进度环 + 倒计时
-    Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+    FullWidthCard(shape = RoundedCornerShape(28.dp)) {
         Box(Modifier.fillMaxWidth().background(HeroGradient).padding(vertical = 28.dp)) {
             Column(
                 Modifier.fillMaxWidth(),
@@ -864,8 +877,8 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
     }
 
     // 概要
-    Card(shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    FullWidthCard(shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SummaryRow("入场时间", Format.dateTime(session.entryEpochMs))
             if (cfg.freeMinutes > 0) SummaryRow("免费时长", "${cfg.freeMinutes} 分钟(提前 ${cfg.remindBeforeFreeMinutes} 分钟提醒)")
             SummaryRow("计费规则", "¥${cfg.rateYuan} / ${ParkingMath.unitText(cfg)}")
@@ -874,8 +887,8 @@ private fun ActiveSection(viewModel: ParkingViewModel, session: ParkingSession) 
     }
 
     // 提醒时间轴
-    Card(shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    FullWidthCard(shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("提醒计划", style = MaterialTheme.typography.titleMedium)
             val items = ParkingMath.reminderTimeline(session, now, maxItems = 4)
             items.forEachIndexed { index, item ->
