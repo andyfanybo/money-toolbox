@@ -44,6 +44,23 @@
             android:name=".RenewalActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".PdfToolsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".PdfReaderActivity"
+            android:exported="true"
+            android:label="省钱工具箱 · PDF 阅读">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/pdf" />
+                <data android:scheme="file" android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".notify.AlarmReceiver"
             android:exported="false" />

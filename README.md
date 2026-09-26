@@ -63,16 +63,21 @@
 
 手机重启或系统时区变化后会重新安排通知。请允许通知权限;若未授予精确闹钟权限,系统可能延迟当天的提醒时间。
 
+## 📄 PDF 阅读与转图片
+
+- 在首页打开「PDF 工具」阅读本地文件，支持翻页、跳页、手势缩放、文字搜索和记住上次页码。文件管理器中点开 PDF 时也可以选择「省钱工具箱 · PDF 阅读」。
+- 可选择单个或多个 PDF，将每一页离线导出为 PNG 到指定文件夹；清晰度可选 1×、2×、3×、4×，阅读时也能单独导出当前页。
+- 文件通过系统文件选择器授权，转换过程逐页渲染并显示进度，可取消。PDF 只在手机本地处理，不上传。
+
 ## 📲 下载安装
 
 前往 [**GitHub Releases**](https://github.com/andyfanybo/money-toolbox/releases/latest) 下载对应版本:
 
 | 文件 | 适用设备 |
 |---|---|
-| `MoneyToolbox-x.y.z-arm64-v8a.apk` | **推荐**,2016 年后绝大多数手机(64 位) |
-| `MoneyToolbox-x.y.z-armeabi-v7a.apk` | 早期 32 位设备 |
+| `MoneyToolbox-x.y.z-arm64-v8a.apk` | ARMv8 / 64 位 Android 手机 |
 
-> 安装时系统可能提示「未知来源应用」,允许即可。两个包签名一致,后续可放心覆盖升级。
+> 安装时系统可能提示「未知来源应用」,允许即可。同一签名的旧版可以覆盖升级。
 
 **系统要求**:Android 8.0(API 26)及以上。
 
@@ -91,17 +96,17 @@
 
 | 操作 | 结果 |
 |---|---|
-| 推送到 `main` 分支 | 运行单元测试 + 编译,APK 存入 Workflow Artifacts |
-| 推送 `v*` 标签(如 `v1.0.1`) | 同上,并把 **armv7 / armv8 两个 APK** 发布到 GitHub Releases |
+| 推送到 `main` 分支或手动运行 | 运行单元测试 + 编译 ARMv8 APK，直接创建 GitHub 预发布版 |
+| 推送 `v*` 标签(如 `v1.2.0`) | 同上,并创建 GitHub 正式 Release |
 
 发布新版本只需两步:
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
-正式版版本名取自 tag;普通构建显示 `1.1.0-dev.<运行序号>.<尝试序号>`。每次 CI 构建的内部 `versionCode` 随运行序号递增,便于直接覆盖安装旧构建;Release 说明自动生成。本地构建默认显示 `1.1.0`。
+正式版版本名取自 tag;普通构建显示 `1.2.0-dev.<运行序号>.<尝试序号>`。每次 CI 构建的内部 `versionCode` 随运行序号递增,便于直接覆盖安装旧构建;Release 说明自动生成。本地构建默认显示 `1.2.0`。
 
 <details>
 <summary>本地构建(可选)</summary>
@@ -109,7 +114,7 @@ git push origin v1.0.1
 ```bash
 # 需要 JDK 17 和 Android SDK
 ./gradlew :app:testDebugUnitTest :app:assembleRelease
-# 产物: app/build/outputs/apk/release/app-{arm64-v8a,armeabi-v7a}-release.apk
+# 产物: app/build/outputs/apk/release/app-arm64-v8a-release.apk
 ```
 
 </details>
@@ -169,4 +174,4 @@ money-toolbox/
 
 ## 开源许可
 
-[MIT](LICENSE)
+本仓库原创代码仍按 [MIT](LICENSE) 授权。PDF 功能使用 Artifex MuPDF，适用 [GNU AGPL v3](LICENSE-MUPDF-AGPL-3.0.txt)；包含 MuPDF 的 APK 作为组合程序按 AGPL v3 条件发布，完整应用源码就在本仓库。MuPDF 的版权归 Artifex Software, Inc. 所有。

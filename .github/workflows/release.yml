@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APKs (armv7 / armv8)
+    name: Build ARMv8 APK and publish Release
     runs-on: ubuntu-latest
     # 允许 GITHUB_TOKEN 创建 Release 并上传 APK
     permissions:
@@ -48,7 +48,7 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           else
-            VERSION_NAME="1.1.0-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+            VERSION_NAME="1.2.0-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
           fi
           VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
           ./gradlew :app:assembleRelease -PappVersionName="$VERSION_NAME" -PappVersionCode="$VERSION_CODE" --stacktrace
@@ -58,26 +58,29 @@ jobs:
         run: |
           mkdir -p dist
           VER="$APP_VERSION_NAME"
-          cp app/build/outputs/apk/release/app-arm64-v8a-release.apk   "dist/MoneyToolbox-${VER}-arm64-v8a.apk"
-          cp app/build/outputs/apk/release/app-armeabi-v7a-release.apk "dist/MoneyToolbox-${VER}-armeabi-v7a.apk"
+          cp app/build/outputs/apk/release/app-arm64-v8a-release.apk "dist/MoneyToolbox-${VER}-arm64-v8a.apk"
           ls -la dist/
 
-      - name: Upload build artifacts (every branch build)
+      - name: Upload branch test build
+        if: github.ref_type == 'branch' && github.ref_name != 'main'
         uses: actions/upload-artifact@v4
         with:
-          name: apks-${{ github.run_id }}
+          name: arm64-test-${{ github.run_id }}
           path: dist/*.apk
           if-no-files-found: error
 
-      - name: Publish to GitHub Releases (tag push only)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish to GitHub Releases
+        if: github.ref_type == 'tag' || github.ref_name == 'main'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}-{1}', github.run_number, github.run_attempt) }}
+          name: 省钱工具箱 ${{ env.APP_VERSION_NAME }}
+          prerelease: ${{ github.ref_type != 'tag' }}
+          target_commitish: ${{ github.sha }}
           files: dist/*.apk
-          generate_release_notes: true
+          generate_release_notes: ${{ github.ref_type == 'tag' }}
           body: |
             ## 📲 安装说明
-            - **arm64-v8a**(推荐): 2016 年之后的大部分手机
-            - **armeabi-v7a**: 更早期的 32 位设备
-
-            下载对应 APK 直接安装即可。覆盖安装旧版本无需卸载(签名一致)。
+            下载 **arm64-v8a** APK，适用于 ARMv8 手机。支持本地 PDF 阅读、文件管理器直接打开 PDF，以及单个或批量转 PNG。
+            同一签名的旧版本可以覆盖安装，保留本地停车与续费数据。
+            PDF 引擎使用 MuPDF（AGPL v3）；完整应用源码与许可文本见本仓库。

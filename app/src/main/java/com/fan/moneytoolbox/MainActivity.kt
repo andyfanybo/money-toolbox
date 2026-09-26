@@ -33,6 +33,7 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         onOpenParking = { screen = Screen.Parking },
                         onOpenRenewals = { startActivity(Intent(this, RenewalActivity::class.java)) },
+                        onOpenPdf = { startActivity(Intent(this, PdfToolsActivity::class.java)) },
                     )
                     Screen.Parking -> ParkingScreen(viewModel = viewModel, onBack = { screen = Screen.Home })
                 }
