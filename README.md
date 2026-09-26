@@ -101,7 +101,7 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-版本号自动取自 tag(同时自动换算 `versionCode`),Release 说明自动生成。
+正式版版本名取自 tag;普通构建显示 `1.1.0-dev.<运行序号>.<尝试序号>`。每次 CI 构建的内部 `versionCode` 随运行序号递增,便于直接覆盖安装旧构建;Release 说明自动生成。本地构建默认显示 `1.1.0`。
 
 <details>
 <summary>本地构建(可选)</summary>

@@ -46,17 +46,18 @@ jobs:
       - name: Build release APKs
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            ./gradlew :app:assembleRelease -PappVersionName="${GITHUB_REF_NAME#v}" --stacktrace
+            VERSION_NAME="${GITHUB_REF_NAME#v}"
           else
-            ./gradlew :app:assembleRelease --stacktrace
+            VERSION_NAME="1.1.0-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
           fi
+          VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
+          ./gradlew :app:assembleRelease -PappVersionName="$VERSION_NAME" -PappVersionCode="$VERSION_CODE" --stacktrace
+          echo "APP_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
 
       - name: Collect APKs
-        env:
-          REF_NAME: ${{ github.ref_name }}
         run: |
           mkdir -p dist
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then VER="${GITHUB_REF_NAME#v}"; else VER="${GITHUB_REF_NAME//\//-}-$(echo $GITHUB_SHA | cut -c1-7)"; fi
+          VER="$APP_VERSION_NAME"
           cp app/build/outputs/apk/release/app-arm64-v8a-release.apk   "dist/MoneyToolbox-${VER}-arm64-v8a.apk"
           cp app/build/outputs/apk/release/app-armeabi-v7a-release.apk "dist/MoneyToolbox-${VER}-armeabi-v7a.apk"
           ls -la dist/

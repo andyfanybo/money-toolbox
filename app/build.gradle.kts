@@ -4,11 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// 版本可由 CI 通过 -PappVersionName=1.2.3 覆盖(打 tag 时自动取 tag 号)
-val appVersionName = (project.findProperty("appVersionName") as String?) ?: "1.0.0"
-val appVersionCode = appVersionName.split(".")
-    .map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
-    .take(3).reduceIndexed { index, acc, value -> if (index == 1) acc * 100 + value else acc * 1000 + value }
+// CI 为每次构建传入独立的名称和递增版本码;本地构建使用当前基础版本。
+val appVersionName = (project.findProperty("appVersionName") as String?) ?: "1.1.0"
+val appVersionCode = (project.findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1_000_000
 
 android {
     namespace = "com.fan.moneytoolbox"
