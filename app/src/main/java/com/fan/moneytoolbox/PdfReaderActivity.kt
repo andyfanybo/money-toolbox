@@ -127,7 +127,12 @@ private fun ReaderScreen(uri: Uri, viewModel: PdfReaderViewModel, onBack: () -> 
                             .pointerInput(bitmap) {
                                 detectTransformGestures { _, pan, gestureZoom, _ ->
                                     zoom = (zoom * gestureZoom).coerceIn(1f, 5f)
-                                    offset = if (zoom == 1f) Offset.Zero else offset + pan
+                                    val maxX = size.width * (zoom - 1f) / 2f
+                                    val maxY = size.height * (zoom - 1f) / 2f
+                                    offset = if (zoom == 1f) Offset.Zero else Offset(
+                                        (offset.x + pan.x).coerceIn(-maxX, maxX),
+                                        (offset.y + pan.y).coerceIn(-maxY, maxY),
+                                    )
                                 }
                             }
                             .graphicsLayer(scaleX = zoom, scaleY = zoom,

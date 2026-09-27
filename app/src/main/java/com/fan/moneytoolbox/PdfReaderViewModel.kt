@@ -71,7 +71,7 @@ class PdfReaderViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun goTo(index: Int) {
+    fun goTo(index: Int, message: String? = null) {
         val current = mutableState.value
         if (index !in 0 until current.pageCount) return
         renderJob?.cancel()
@@ -81,7 +81,7 @@ class PdfReaderViewModel(app: Application) : AndroidViewModel(app) {
                 val bitmap = withContext(Dispatchers.IO) {
                     mutex.withLock { PdfEngine.renderPreview(getApplication(), document ?: error("PDF 已关闭"), index) }
                 }
-                mutableState.value = mutableState.value.copy(pageIndex = index, bitmap = bitmap, loading = false)
+                mutableState.value = mutableState.value.copy(pageIndex = index, bitmap = bitmap, loading = false, message = message)
                 sourceUri?.let { getApplication<Application>().getSharedPreferences("pdf_reading", 0)
                     .edit().putInt(it.toString(), index).apply() }
             } catch (error: Exception) {
@@ -93,23 +93,27 @@ class PdfReaderViewModel(app: Application) : AndroidViewModel(app) {
     fun search(query: String) {
         if (query.isBlank()) return
         viewModelScope.launch {
-            val current = mutableState.value
-            mutableState.value = current.copy(message = "正在搜索…")
-            val found = withContext(Dispatchers.IO) {
-                mutex.withLock {
-                    val doc = document ?: return@withLock null
-                    for (offset in 1..current.pageCount) {
-                        val index = (current.pageIndex + offset) % current.pageCount
-                        val page = doc.loadPage(index)
-                        try {
-                            if (page.search(query).isNotEmpty()) return@withLock index
-                        } finally { page.destroy() }
+            try {
+                val current = mutableState.value
+                mutableState.value = current.copy(message = "正在搜索…")
+                val found = withContext(Dispatchers.IO) {
+                    mutex.withLock {
+                        val doc = document ?: return@withLock null
+                        for (offset in 1..current.pageCount) {
+                            val index = (current.pageIndex + offset) % current.pageCount
+                            val page = doc.loadPage(index)
+                            try {
+                                if (page.search(query).isNotEmpty()) return@withLock index
+                            } finally { page.destroy() }
+                        }
+                        null
                     }
-                    null
                 }
+                if (found == null) mutableState.value = mutableState.value.copy(message = "未找到“$query”")
+                else goTo(found, "已找到第 ${found + 1} 页")
+            } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(message = error.message ?: "搜索失败")
             }
-            if (found == null) mutableState.value = mutableState.value.copy(message = "未找到“$query”")
-            else goTo(found)
         }
     }
 
