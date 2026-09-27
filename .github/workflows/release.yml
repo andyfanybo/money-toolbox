@@ -48,11 +48,14 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           else
-            VERSION_NAME="1.2.0-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+            VERSION_NAME="1.2.1-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
           fi
           VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
           ./gradlew :app:assembleRelease -PappVersionName="$VERSION_NAME" -PappVersionCode="$VERSION_CODE" --stacktrace
           echo "APP_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
+      - name: Verify MuPDF JNI bindings in release APK
+        run: python3 tools/check_mupdf_dex.py app/build/outputs/apk/release/app-arm64-v8a-release.apk
 
       - name: Collect APKs
         run: |
