@@ -5,7 +5,7 @@ plugins {
 }
 
 // CI 为每次构建传入独立的名称和递增版本码;本地构建使用当前基础版本。
-val appVersionName = (project.findProperty("appVersionName") as String?) ?: "1.2.0"
+val appVersionName = (project.findProperty("appVersionName") as String?) ?: "1.2.1"
 val appVersionCode = (project.findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1_000_000
 
 android {
