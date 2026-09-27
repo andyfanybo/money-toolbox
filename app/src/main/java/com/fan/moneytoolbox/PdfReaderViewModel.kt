@@ -65,6 +65,8 @@ class PdfReaderViewModel(app: Application) : AndroidViewModel(app) {
                     pageCount = pageCount, pageIndex = pageIndex, bitmap = bitmap, loading = false)
             } catch (_: PdfPasswordRequiredException) {
                 mutableState.value = mutableState.value.copy(loading = false, needsPassword = true, message = "请输入 PDF 密码")
+            } catch (_: LinkageError) {
+                mutableState.value = mutableState.value.copy(loading = false, message = "PDF 引擎加载失败，请更新应用")
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(loading = false, message = error.message ?: "无法打开 PDF")
             }

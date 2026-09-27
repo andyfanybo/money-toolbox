@@ -35,6 +35,8 @@ class PdfToolsViewModel(app: Application) : AndroidViewModel(app) {
                 mutableState.value = PdfConversionUiState(finished = true, progress = result)
             } catch (_: CancellationException) {
                 mutableState.value = mutableState.value.copy(running = false, error = "已取消转换")
+            } catch (_: LinkageError) {
+                mutableState.value = mutableState.value.copy(running = false, error = "PDF 引擎加载失败，请更新应用")
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(running = false, error = error.message ?: "转换失败")
             }
