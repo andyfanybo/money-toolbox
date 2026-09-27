@@ -28,6 +28,7 @@ class SettingsRepository(private val context: Context) {
         val GRACE = intPreferencesKey("cfg_grace_minutes")
         val REMIND_BEFORE = intPreferencesKey("cfg_remind_before_free")
         val SESSION_ENTRY = longPreferencesKey("session_entry_ms")
+        val SESSION_ID = stringPreferencesKey("session_id")
         // 会话自带的配置快照
         val S_FREE = intPreferencesKey("s_free")
         val S_RATE = intPreferencesKey("s_rate")
@@ -58,6 +59,7 @@ class SettingsRepository(private val context: Context) {
         ParkingSession(
             entryEpochMs = entry,
             paidAtMs = p[Keys.S_PAID_AT] ?: 0L,
+            sessionId = p[Keys.SESSION_ID] ?: "",
             config = ParkingConfig(
                 freeMinutes = p[Keys.S_FREE] ?: 30,
                 rateYuan = p[Keys.S_RATE] ?: 6,
@@ -103,6 +105,7 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { p ->
             if (session == null) {
                 p.remove(Keys.SESSION_ENTRY)
+                p.remove(Keys.SESSION_ID)
                 p.remove(Keys.S_FREE)
                 p.remove(Keys.S_RATE)
                 p.remove(Keys.S_UNIT)
@@ -112,6 +115,7 @@ class SettingsRepository(private val context: Context) {
                 p.remove(Keys.S_PAID_AT)
             } else {
                 p[Keys.SESSION_ENTRY] = session.entryEpochMs
+                p[Keys.SESSION_ID] = session.sessionId
                 p[Keys.S_FREE] = session.config.freeMinutes
                 p[Keys.S_RATE] = session.config.rateYuan
                 p[Keys.S_UNIT] = session.config.billingUnitMinutes

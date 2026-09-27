@@ -1,5 +1,6 @@
 package com.fan.moneytoolbox
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -28,7 +29,12 @@ class MainActivity : ComponentActivity() {
                 var screen by rememberSaveable { mutableStateOf(Screen.Home) }
                 BackHandler(enabled = screen == Screen.Parking) { screen = Screen.Home }
                 when (screen) {
-                    Screen.Home -> HomeScreen(viewModel = viewModel, onOpenParking = { screen = Screen.Parking })
+                    Screen.Home -> HomeScreen(
+                        viewModel = viewModel,
+                        onOpenParking = { screen = Screen.Parking },
+                        onOpenRenewals = { startActivity(Intent(this, RenewalActivity::class.java)) },
+                        onOpenPdf = { startActivity(Intent(this, PdfToolsActivity::class.java)) },
+                    )
                     Screen.Parking -> ParkingScreen(viewModel = viewModel, onBack = { screen = Screen.Home })
                 }
             }

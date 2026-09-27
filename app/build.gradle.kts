@@ -4,11 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// 版本可由 CI 通过 -PappVersionName=1.2.3 覆盖(打 tag 时自动取 tag 号)
-val appVersionName = (project.findProperty("appVersionName") as String?) ?: "1.0.0"
-val appVersionCode = appVersionName.split(".")
-    .map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
-    .take(3).reduceIndexed { index, acc, value -> if (index == 1) acc * 100 + value else acc * 1000 + value }
+// CI 为每次构建传入独立的名称和递增版本码;本地构建使用当前基础版本。
+val appVersionName = (project.findProperty("appVersionName") as String?) ?: "1.2.0"
+val appVersionCode = (project.findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1_000_000
 
 android {
     namespace = "com.fan.moneytoolbox"
@@ -37,12 +35,12 @@ android {
         }
     }
 
-    // 只出两个 ABI 包: 32 位 armeabi-v7a 与 64 位 arm64-v8a
+    // MuPDF 原生库仅随 ARMv8 安装包发布。
     splits {
         abi {
             isEnable = true
             reset()
-            include("armeabi-v7a", "arm64-v8a")
+            include("arm64-v8a")
             isUniversalApk = false
         }
     }
@@ -77,6 +75,7 @@ android {
 }
 
 dependencies {
+    implementation("com.artifex.mupdf:fitz:1.28.4")
     val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")

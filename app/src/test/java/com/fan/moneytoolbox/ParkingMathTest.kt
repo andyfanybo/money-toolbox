@@ -5,7 +5,6 @@ import com.fan.moneytoolbox.data.ParkingMath
 import com.fan.moneytoolbox.data.ParkingSession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,9 +54,15 @@ class ParkingMathTest {
     }
 
     @Test
-    fun `免费时长小于提前量时 不做免费提醒`() {
+    fun `免费时长小于提前量时 仍在入场后及时提醒`() {
         val s = session(free = 5, remindBefore = 10)
-        assertNull(ParkingMath.freeRemindMs(s))
+        assertEquals(entry + 4 * min, ParkingMath.freeRemindMs(s))
+    }
+
+    @Test
+    fun `只有1分钟免费时长时 在中途提醒`() {
+        val s = session(free = 1, remindBefore = 10)
+        assertEquals(entry + 30_000L, ParkingMath.freeRemindMs(s))
     }
 
     // ---------- 下一个提醒的调度顺序 ----------
@@ -79,6 +84,29 @@ class ParkingMathTest {
     fun `收费提醒被忽略后 按周期继续提醒`() {
         val s = session(free = 0, unit = 60, buffer = 2)
         assertEquals(entry + 118 * min, ParkingMath.nextReminderMs(s, entry + 59 * min))
+    }
+
+    @Test
+    fun `停车超过六个周期后 时间轴仍显示下一次收费提醒`() {
+        val s = session(free = 0, unit = 60, buffer = 2)
+        val items = ParkingMath.reminderTimeline(s, entry + 6 * 60 * min, maxItems = 4)
+        assertEquals(entry + 418 * min, items.first { !it.passed }.timeMs)
+        assertEquals(entry + 358 * min, items.first().timeMs)
+    }
+
+    @Test
+    fun `已缴费后 旧收费闹钟不再属于当前会话`() {
+        val s = session(free = 0, unit = 60, buffer = 2, paidAt = entry + 58 * min)
+        assertFalse(ParkingMath.isReminderForSession(s, entry + 58 * min))
+        assertTrue(ParkingMath.isReminderForSession(s, entry + 73 * min))
+        assertTrue(ParkingMath.isReminderForSession(s, entry + 131 * min))
+    }
+
+    @Test
+    fun `重新开始停车后 旧会话闹钟不再有效`() {
+        val s = session(free = 0, unit = 60, buffer = 2).copy(sessionId = "new-session")
+        assertFalse(ParkingMath.isReminderForSession(s, entry + 58 * min, "old-session"))
+        assertTrue(ParkingMath.isReminderForSession(s, entry + 58 * min, "new-session"))
     }
 
     @Test
